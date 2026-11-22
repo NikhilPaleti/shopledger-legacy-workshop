@@ -11,13 +11,13 @@ function meeraAccount() {
   };
 }
 
-test('CURRENT BEHAVIOUR: the text payment from the Khata form concatenates with Total Settled', () => {
+test('the text payment from the Khata form adds ₹500 and leaves Meera owing ₹732.01', () => {
   const db = meeraAccount();
   const result = ledger.recordSettlement(db, '1', '500', 'upi', 'Counter payment');
   assert.equal(result.ok, true);
-  assert.equal(result.customer.totalSettled, '1200500');
-  assert.equal(result.customer.balance, -1198067.99);
-  assert.equal(ledger.listCustomers(db)[0].balance, -1198067.99);
+  assert.equal(result.customer.totalSettled, 1700);
+  assert.equal(result.customer.balance, 732.01);
+  assert.equal(ledger.listCustomers(db)[0].balance, 732.01);
   assert.equal(result.settlement.amount, 500);
 });
 
@@ -40,6 +40,24 @@ test('missing customers and nonpositive payments leave the ledger untouched', ()
   for (const [id, amount] of [[9, 500], [1, '0'], [1, -1], [1, '']]) {
     const db = meeraAccount();
     assert.equal(ledger.recordSettlement(db, id, amount).ok, false);
+    assert.deepEqual(db, meeraAccount());
+  }
+});
+
+test('successive decimal payments use numeric totals even when the stored total is a string', () => {
+  const db = meeraAccount();
+  db.customers[0].totalSettled = '1200';
+  ledger.recordSettlement(db, 1, '499.90');
+  ledger.recordSettlement(db, 1, '0.10');
+  assert.equal(db.customers[0].totalSettled, 1700);
+  assert.equal(ledger.listCustomers(db)[0].balance, 732.01);
+  assert.deepEqual(db.settlements.map(entry => entry.amount), [0.10, 499.90]);
+});
+
+test('invalid and non-finite payments do not change the account, history or next ID', () => {
+  for (const amount of ['invalid', 'Infinity', ' ', null, true, [500], {}, NaN, Infinity]) {
+    const db = meeraAccount();
+    assert.equal(ledger.recordSettlement(db, 1, amount).ok, false);
     assert.deepEqual(db, meeraAccount());
   }
 });
