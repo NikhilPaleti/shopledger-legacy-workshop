@@ -205,3 +205,29 @@ test('an impossible recorded discount is flagged and cannot produce a negative i
     assert.match(render(sale), /invalid recorded discount/i);
   }
 });
+
+test('a conflicting aggregate does not replace a supported invoice total silently', () => {
+  const sale = { items: [{ name: 'Tea', hsn: '0902', price: 100, qty: 1 }], discount: 0, tax: 30, total: 118 };
+  assert.equal(getGstReconciliation({ orders: [sale] }).mismatchCount, 1);
+  const html = render(sale);
+  assert.match(html, /Invoice Total<\/td><td class="r">₹118\.00/);
+  assert.match(html, /recorded GST conflicts with the recorded total/i);
+});
+
+test('a partial legacy breakdown still prints a known line rate and tax', () => {
+  const sale = { items: [
+    { name: 'Known line', price: 100, qty: 1, gstPercent: 12, lineTax: 12 },
+    { name: 'Unknown line', hsn: '1006', price: 100, qty: 1 }
+  ], discount: 0, tax: 30, total: 230 };
+  const html = render(sale);
+  assert.match(html, /12%<\/td><td class="r">₹12\.00<\/td>/);
+  assert.match(html, /—<\/td><td class="r">—<\/td>/);
+});
+
+test('negative stored line rates and taxes fall back to the applicable HSN rate', () => {
+  const item = { name: 'Tea', hsn: '0902', price: 100, qty: 1, gstPercent: -18, lineTax: -18 };
+  const invoice = computeInvoiceFigures({ items: [item] });
+  assert.equal(invoice.rows[0].gstPercent, 18);
+  assert.equal(invoice.rows[0].lineTax, 18);
+  assert.equal(invoice.total, 118);
+});
