@@ -129,3 +129,49 @@ test('a genuine one-paisa ledger difference still appears in the audit and on th
   assert.equal(audit.totalDelta, 0.01);
   assert.match(render(order), /recorded total \(₹963\.89\) by \+₹0\.01/);
 });
+
+test('a retired coupon still appears at its billed amount on a historical invoice', () => {
+  const sale = {
+    items: [{ name: 'Tea', hsn: '0902', price: 140, qty: 10 }],
+    coupon: 'DIWALI20', discount: 250, tax: 207, total: 1357
+  };
+  const invoice = computeInvoiceFigures(sale);
+  assert.equal(invoice.discount, 250);
+  assert.equal(invoice.tax, 207);
+  assert.equal(invoice.total, 1357);
+  assert.equal(invoice.rows[0].lineTax, 207);
+  assert.equal(getGstReconciliation({ orders: [sale] }).mismatchCount, 0);
+});
+
+test('a legacy mixed-rate sale retains billed GST when its original line breakdown is unavailable', () => {
+  const sale = {
+    items: [
+      { name: 'Tea', hsn: '0902', price: 100, qty: 1 },
+      { name: 'Rice', hsn: '1006', price: 100, qty: 1 }
+    ],
+    discount: 0, tax: 30, total: 230
+  };
+  const invoice = computeInvoiceFigures(sale);
+  assert.equal(invoice.tax, 30);
+  assert.equal(invoice.total, 230);
+  assert.deepEqual(invoice.rows.map(row => row.lineTax), [null, null]);
+  assert.deepEqual(invoice.rows.map(row => row.gstPercent), [null, null]);
+  assert.match(render(sale), /original line breakdown/i);
+  assert.equal(getGstReconciliation({ orders: [{ ...sale, total: 229.99 }] }).totalDelta, 0.01);
+});
+
+test('saved checkout lines preserve mixed rates and still expose an incorrect ledger tax', () => {
+  const sale = {
+    items: [
+      { name: 'Tea', hsn: '0902', price: 100, qty: 1, gstPercent: 12, lineTax: 12 },
+      { name: 'Rice', hsn: '1006', price: 100, qty: 1, gstPercent: 18, lineTax: 18 }
+    ],
+    discount: 0, tax: 30, total: 230
+  };
+  const invoice = computeInvoiceFigures(sale);
+  assert.deepEqual(invoice.rows.map(row => row.gstPercent), [12, 18]);
+  assert.deepEqual(invoice.rows.map(row => row.lineTax), [12, 18]);
+  assert.deepEqual([invoice.tax, invoice.cgst, invoice.sgst, invoice.total], [30, 15, 15, 230]);
+  assert.equal(getGstReconciliation({ orders: [sale] }).mismatchCount, 0);
+  assert.equal(getGstReconciliation({ orders: [{ ...sale, tax: 29.99 }] }).mismatchCount, 1);
+});
