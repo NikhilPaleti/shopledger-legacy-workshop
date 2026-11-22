@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="780" viewBox="0 0 1280 780" role="img" aria-labelledby="title description">
+  <title id="title">ShopLedger architecture and order flow</title>
+  <desc id="description">The browser calls an Express server with four API routers and a printable invoice route. Ten modules implement business logic and storage. Checkout reads the JSON store, checks stock and coupons, calculates GST, charges Khata if needed, deducts stock, saves the order and returns HTTP 201.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 9 5 1 9" fill="none" stroke="#566c79" stroke-width="1.5" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; fill: #172d3a; }
+      .title { font-size: 37px; font-weight: 700; }
+      .heading { font-size: 23px; font-weight: 700; }
+      .file { font-family: Menlo, Consolas, monospace; font-size: 17px; font-weight: 600; }
+      .path { font-family: Menlo, Consolas, monospace; font-size: 15px; }
+      .body { font-size: 16px; fill: #415765; }
+      .step { font-size: 17px; font-weight: 700; fill: #075b52; }
+      .step-text { font-size: 15px; fill: #304c50; }
+      .box { fill: white; stroke: #becdd1; stroke-width: 1.5; }
+      .line { fill: none; stroke: #566c79; stroke-width: 2; marker-end: url(#arrow); }
+      .rule { stroke: #dbe4e6; }
+    </style>
+  </defs>
+  <rect width="1280" height="780" fill="#f7f9f8"/>
+  <text x="40" y="59" class="title">ShopLedger architecture</text>
+
+  <rect x="40" y="94" width="288" height="148" rx="10" class="box"/>
+  <text x="62" y="129" class="heading">Browser UI</text>
+  <text x="62" y="160" class="path">public/index.html</text>
+  <text x="62" y="187" class="path">public/js/app.js</text>
+  <text x="62" y="214" class="path">public/css/style.css</text>
+  <path d="M92 242 V295" class="line"/>
+  <text x="106" y="274" class="body">HTTP requests</text>
+
+  <rect x="40" y="300" width="288" height="171" rx="10" class="box"/>
+  <text x="62" y="336" class="heading">Express server</text>
+  <text x="62" y="366" class="file">server.js</text>
+  <text x="62" y="395" class="body">Serves the UI and mounts /api.</text>
+  <text x="62" y="426" class="path">GET /orders/:id/invoice</text>
+  <text x="62" y="450" class="body">Finds the order and renders HTML.</text>
+  <path d="M328 371 H378" class="line"/>
+
+  <rect x="384" y="94" width="332" height="377" rx="10" class="box"/>
+  <text x="406" y="130" class="heading">API routers</text>
+  <text x="406" y="160" class="path">routes/</text>
+  <path d="M406 178 H694" class="rule"/>
+  <text x="406" y="207" class="file">products.js</text>
+  <text x="406" y="230" class="body">Catalog and active coupons</text>
+  <rect x="396" y="246" width="308" height="59" rx="5" fill="#e6f3ef"/>
+  <text x="406" y="269" class="file">orders.js</text>
+  <text x="406" y="292" class="body">Place, list, retrieve, cancel</text>
+  <text x="406" y="338" class="file">customers.js</text>
+  <text x="406" y="361" class="body">Khata accounts and settlements</text>
+  <text x="406" y="405" class="file">reports.js</text>
+  <text x="406" y="428" class="body">Dashboard, GST audit, cart preview,</text>
+  <text x="406" y="449" class="body">admin export</text>
+  <path d="M716 275 H766" class="line"/>
+
+  <rect x="772" y="94" width="468" height="377" rx="10" class="box"/>
+  <text x="794" y="130" class="heading">Business logic and storage</text>
+  <text x="794" y="160" class="path">lib/</text>
+  <path d="M794 178 H1218" class="rule"/>
+  <text x="794" y="208" class="file">inventory.js</text>
+  <text x="794" y="229" class="body">Sellable stock</text>
+  <text x="1016" y="208" class="file">pricing.js</text>
+  <text x="1016" y="229" class="body">Checkout totals</text>
+  <text x="794" y="264" class="file">coupons.js</text>
+  <text x="794" y="285" class="body">Eligibility and caps</text>
+  <text x="1016" y="264" class="file">tax.js</text>
+  <text x="1016" y="285" class="body">HSN rates and GST split</text>
+  <text x="794" y="320" class="file">ledger.js</text>
+  <text x="794" y="341" class="body">Customer credit</text>
+  <text x="1016" y="320" class="file">orders.js</text>
+  <text x="1016" y="341" class="body">Order records and status</text>
+  <text x="794" y="376" class="file">dates.js</text>
+  <text x="794" y="397" class="body">Dates and fiscal years</text>
+  <text x="1016" y="376" class="file">invoice.js</text>
+  <text x="1016" y="397" class="body">Printable invoice figures</text>
+  <text x="794" y="432" class="file">reports.js</text>
+  <text x="794" y="453" class="body">Dashboard and GST audit</text>
+  <text x="1016" y="432" class="file">store.js</text>
+  <text x="1016" y="453" class="body">JSON reads and writes</text>
+
+  <path d="M873 511 V477" class="line"/>
+  <path d="M1116 477 V506" class="line" marker-start="url(#arrow)"/>
+  <rect x="384" y="512" width="545" height="60" rx="8" class="box"/>
+  <text x="404" y="547" class="file">config.js</text>
+  <text x="522" y="547" class="body">Shop, port, GST slabs, coupon and stock rules</text>
+  <rect x="958" y="512" width="282" height="60" rx="8" class="box"/>
+  <text x="981" y="547" class="file">data/db.json</text>
+
+  <text x="40" y="622" class="heading">Placing an order</text>
+  <text x="245" y="622" class="path">POST /api/orders</text>
+  <rect x="40" y="643" width="1200" height="108" rx="10" fill="#e6f3ef" stroke="#b7d5cd"/>
+  <g>
+    <text x="58" y="674" class="step">1. Read and check</text>
+    <text x="58" y="702" class="step-text">Load products and check</text>
+    <text x="58" y="723" class="step-text">sellable quantities.</text>
+    <path d="M240 697 H270" class="line"/>
+    <text x="287" y="674" class="step">2. Price the cart</text>
+    <text x="287" y="702" class="step-text">Validate coupon, apply</text>
+    <text x="287" y="723" class="step-text">discount and HSN GST.</text>
+    <path d="M460 697 H491" class="line"/>
+    <text x="509" y="674" class="step">3. Apply payment</text>
+    <text x="509" y="702" class="step-text">For Khata, check credit</text>
+    <text x="509" y="723" class="step-text">and debit the account.</text>
+    <path d="M683 697 H714" class="line"/>
+    <text x="732" y="674" class="step">4. Record the sale</text>
+    <text x="732" y="702" class="step-text">Deduct stock, add the order,</text>
+    <text x="732" y="723" class="step-text">append the audit entry.</text>
+    <path d="M946 697 H976" class="line"/>
+    <text x="995" y="674" class="step">5. Save and return</text>
+    <text x="995" y="702" class="step-text">Write the JSON store.</text>
+    <text x="995" y="723" class="step-text">Send the order with HTTP 201.</text>
+  </g>
+</svg>
