@@ -69,11 +69,6 @@ router.post('/orders', function (req, res) {
   }
 
   var totals = pricing.computeTotals(items, rawCoupon);
-  // Keep the checkout breakdown so a later rate change cannot reprice a reprint.
-  totals.lines.forEach(function (line, index) {
-    items[index].gstPercent = line.gstPercent;
-    items[index].lineTax = line.tax;
-  });
   var paymentMode = (body.paymentMode || 'cash').toLowerCase();
   var customerName = (body.customer || '').trim() || 'Walk-in';
   var customerId = body.customerId ? Number(body.customerId) : null;

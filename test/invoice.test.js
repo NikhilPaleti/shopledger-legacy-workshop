@@ -143,7 +143,7 @@ test('a retired coupon still appears at its billed amount on a historical invoic
   assert.equal(getGstReconciliation({ orders: [sale] }).mismatchCount, 0);
 });
 
-test('a legacy mixed-rate sale retains billed GST when its original line breakdown is unavailable', () => {
+test('a legacy print preserves billed GST while the audit independently flags a different reconstruction', () => {
   const sale = {
     items: [
       { name: 'Tea', hsn: '0902', price: 100, qty: 1 },
@@ -152,12 +152,13 @@ test('a legacy mixed-rate sale retains billed GST when its original line breakdo
     discount: 0, tax: 30, total: 230
   };
   const invoice = computeInvoiceFigures(sale);
-  assert.equal(invoice.tax, 30);
-  assert.equal(invoice.total, 230);
-  assert.deepEqual(invoice.rows.map(row => row.lineTax), [null, null]);
-  assert.deepEqual(invoice.rows.map(row => row.gstPercent), [null, null]);
+  assert.equal(invoice.tax, 23);
+  assert.equal(invoice.total, 223);
   assert.match(render(sale), /original line breakdown/i);
-  assert.equal(getGstReconciliation({ orders: [{ ...sale, total: 229.99 }] }).totalDelta, 0.01);
+  assert.match(render(sale), /Invoice Total<\/td><td class="r">₹230\.00/);
+  const audit = getGstReconciliation({ orders: [sale] });
+  assert.equal(audit.mismatchCount, 1);
+  assert.equal(audit.totalDelta, 7);
 });
 
 test('saved checkout lines preserve mixed rates and still expose an incorrect ledger tax', () => {
@@ -174,4 +175,33 @@ test('saved checkout lines preserve mixed rates and still expose an incorrect le
   assert.deepEqual([invoice.tax, invoice.cgst, invoice.sgst, invoice.total], [30, 15, 15, 230]);
   assert.equal(getGstReconciliation({ orders: [sale] }).mismatchCount, 0);
   assert.equal(getGstReconciliation({ orders: [{ ...sale, tax: 29.99 }] }).mismatchCount, 1);
+});
+
+test('explicit legacy percentages remain independent of the ledger, including strings and fractional rates', () => {
+  for (const rate of [1, '5', 1.5]) {
+    const sale = { items: [{ name: 'Sample', price: 100, qty: 1, gstRate: rate }],
+      discount: 0, tax: 6, total: 106 };
+    const invoice = computeInvoiceFigures(sale);
+    assert.equal(invoice.tax, Number(rate));
+    assert.equal(invoice.rows[0].gstPercent, Number(rate));
+    assert.equal(getGstReconciliation({ orders: [sale] }).mismatchCount, 1);
+  }
+});
+
+test('a matching aggregate still identifies HSN-only line rates as reconstructed', () => {
+  const sale = { items: [
+    { name: 'Tea', hsn: '0902', price: 100, qty: 1 },
+    { name: 'Rice', hsn: '1006', price: 100, qty: 1 }
+  ], discount: 0, tax: 23, total: 223 };
+  assert.equal(getGstReconciliation({ orders: [sale] }).mismatchCount, 0);
+  assert.match(render(sale), /reconstructed/i);
+});
+
+test('an impossible recorded discount is flagged and cannot produce a negative invoice', () => {
+  for (const discount of [-5, 150]) {
+    const sale = { items: [{ name: 'Tea', hsn: '0902', price: 100, qty: 1 }], discount, tax: 18, total: 118 };
+    assert.equal(computeInvoiceFigures(sale).discount, 0);
+    assert.equal(computeInvoiceFigures(sale).total, 118);
+    assert.match(render(sale), /invalid recorded discount/i);
+  }
 });
