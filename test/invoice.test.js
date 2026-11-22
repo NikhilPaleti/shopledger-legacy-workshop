@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { computeInvoiceFigures, render } = require('../lib/invoice');
+const { getGstReconciliation } = require('../lib/reports');
 
 const riceAndOil = {
   id: 1002, coupon: 'SAVE10', subtotal: 1020, discount: 102, tax: 45.90, total: 963.90,
@@ -64,32 +65,67 @@ test('an order without items has zero figures and no rows', () => {
   assert.deepEqual(computeInvoiceFigures({ items: [] }), expected);
 });
 
-test('CURRENT BEHAVIOUR: #1002 taxes the gross at 18% before SAVE10', () => {
+test('#1002 applies SAVE10 before calculating 5% GST on each line', () => {
   const invoice = computeInvoiceFigures(riceAndOil);
-  assert.equal(invoice.discount, 120.36);
-  assert.equal(invoice.tax, 183.60);
-  assert.equal(invoice.total, 1083.24);
-  assert.deepEqual(invoice.rows.map(row => row.lineTax), [115.20, 68.40]);
+  assert.equal(invoice.discount, riceAndOil.discount);
+  assert.equal(invoice.tax, riceAndOil.tax);
+  assert.deepEqual([invoice.cgst, invoice.sgst], [22.95, 22.95]);
+  assert.equal(invoice.total, riceAndOil.total);
+  assert.deepEqual(invoice.rows.map(row => row.lineTax), [28.80, 17.10]);
 });
 
-test('CURRENT BEHAVIOUR: #1004 exceeds the SAVE10 discount cap', () => {
+test('#1004 caps SAVE10 at ₹150 and taxes the discounted oil at 5%', () => {
   const invoice = computeInvoiceFigures(bulkOil);
-  assert.equal(invoice.discount, 264.32);
-  assert.equal(invoice.tax, 403.20);
-  assert.equal(invoice.total, 2378.88);
+  assert.equal(invoice.discount, bulkOil.discount);
+  assert.equal(invoice.tax, bulkOil.tax);
+  assert.equal(invoice.total, bulkOil.total);
 });
 
-test('CURRENT BEHAVIOUR: #1007 uses 18% on uncouponed 12% and 5% items', () => {
+test('#1007 keeps the 12% and 5% HSN rates without a coupon', () => {
   const invoice = computeInvoiceFigures(gheeAndOil);
-  assert.deepEqual(invoice.rows.map(row => row.gstPercent), [18, 18]);
-  assert.deepEqual(invoice.rows.map(row => row.lineTax), [162, 68.40]);
-  assert.equal(invoice.tax, 230.40);
-  assert.equal(invoice.total, 1510.40);
+  assert.deepEqual(invoice.rows.map(row => row.gstPercent), [12, 5]);
+  assert.deepEqual(invoice.rows.map(row => row.lineTax), [108, 19]);
+  assert.equal(invoice.tax, gheeAndOil.tax);
+  assert.equal(invoice.total, gheeAndOil.total);
 });
 
-test('CURRENT BEHAVIOUR: the printed #1002 invoice warns of a ₹119.34 discrepancy', () => {
+test('the printed #1002 invoice shows the billed total and GST without a discrepancy warning', () => {
   const html = render(riceAndOil);
-  assert.match(html, /Accountant Reconciliation Notice/);
-  assert.match(html, /Invoice computed total \(₹1083\.24\)/);
-  assert.match(html, /recorded total \(₹963\.90\) by \+₹119\.34/);
+  assert.match(html, /Invoice Total<\/td><td class="r">₹963\.90<\/td>/);
+  assert.match(html, /Total GST\)<\/td><td class="r">₹45\.90<\/td>/);
+  assert.match(html, /₹28\.80<\/td>/);
+  assert.match(html, /₹17\.10<\/td>/);
+  assert.doesNotMatch(html, /Accountant Reconciliation Notice/);
+});
+
+test('GST audit reconciles invoice #1002 with the amount and GST billed at checkout', () => {
+  const audit = getGstReconciliation({ orders: [riceAndOil] });
+  const [row] = audit.rows;
+  assert.equal(row.invoiceTotal, riceAndOil.total);
+  assert.equal(row.invoiceTax, riceAndOil.tax);
+  assert.equal(row.invoiceDiscount, riceAndOil.discount);
+  assert.equal(audit.mismatchCount, 0);
+  assert.equal(audit.totalDelta, 0);
+});
+
+test('a flat coupon is apportioned before taxing the 12% and 18% lines of #1003', () => {
+  const invoice = computeInvoiceFigures({
+    coupon: 'FLAT50',
+    items: [
+      { name: 'Butter', hsn: '0405', price: 260, qty: 1 },
+      { name: 'Tea', hsn: '0902', price: 140, qty: 1 }
+    ]
+  });
+  assert.equal(invoice.discount, 50);
+  assert.deepEqual(invoice.rows.map(row => row.lineTax), [27.30, 22.05]);
+  assert.equal(invoice.tax, 49.35);
+  assert.equal(invoice.total, 399.35);
+});
+
+test('a genuine one-paisa ledger difference still appears in the audit and on the invoice', () => {
+  const order = { ...riceAndOil, total: 963.89 };
+  const audit = getGstReconciliation({ orders: [order] });
+  assert.equal(audit.mismatchCount, 1);
+  assert.equal(audit.totalDelta, 0.01);
+  assert.match(render(order), /recorded total \(₹963\.89\) by \+₹0\.01/);
 });
